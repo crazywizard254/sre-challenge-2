@@ -1,0 +1,122 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: appdb
+      MYSQL_USER: app
+      MYSQL_PASSWORD: appsecret
+      MYSQL_ROOT_PASSWORD: rootsecret
+    volumes:
+      - mysqldata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u app -pappsecret" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./app
+    environment:
+      DB_HOST: db
+      DB_USER: app
+      DB_PASSWORD: appsecret
+      DB_NAME: appdb
+      DB_PORT: 3306
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      BASE_URL: http://localhost:8080
+      REDIS_URL: redis://redis:6379/0
+      FLASK_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # One-off seeding job to initialize schema and optionally import a data-only dump.
+  seed:
+    build:
+      context: ./app
+    command: ["python", "seed_db.py"]
+    environment:
+      DB_HOST: db
+      DB_USER: app
+      DB_PASSWORD: appsecret
+      DB_NAME: appdb
+      DB_PORT: 3306
+      # Set to TRUE to import a SQL data-only dump after migrations are applied.
+      IMPORT_DUMP: 'FALSE'
+      DUMP_FILE: ./app/migrations/db_data.sql
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672"
+    restart: unless-stopped
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    restart: unless-stopped
+
+  celery:
+    build:
+      context: ./app
+    command: ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info"]
+    environment:
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      DB_HOST: db
+      DB_USER: app
+      DB_PASSWORD: appsecret
+      DB_NAME: appdb
+      DB_PORT: 3306
+      BASE_URL: http://localhost:8080
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - rabbitmq
+      - db
+      - mailhog
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:stable
+    ports:
+      - "8080:80"
+    volumes:
+      - ./app/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Mount static files so nginx can serve them directly if desired
+      - ./app/static:/app/static:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysqldata:

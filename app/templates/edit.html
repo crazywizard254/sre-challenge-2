@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Edit Part</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <header>
+      <h1>Edit Part</h1>
+    </header>
+    <div class="sidebar">
+      <form method="post" action="/parts/{{ part.id }}/edit">
+        <label>Title<input name="title" value="{{ part.title }}" required></label>
+        <label>Description<input name="description" value="{{ part.description }}"></label>
+        <label>Price<input name="price" type="number" value="{{ part.price }}"></label>
+        <label>Location<input name="location" value="{{ part.location }}"></label>
+        <label>Image URL<input name="image_url" value="{{ part.image_url }}"></label>
+        <label>Contact Email<input name="contact_email" value="{{ part.contact_email }}"></label>
+        <label>Contact Phone<input name="contact_phone" value="{{ part.contact_phone }}"></label>
+        <div class="controls"><button type="submit">Update</button> <a class="btn-link" href="/">Cancel</a></div>
+      </form>
+    </div>
+  </body>
+</html>

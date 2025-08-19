@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Auto Parts Classifieds</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <header>
+      <h1>Auto Parts Classifieds</h1>
+      <div style="font-size:0.9rem;color:#666">Welcome - browse or post parts for sale</div>
+      {% if pending %}
+        <div style="margin-top:10px;padding:10px;background:#fff4e5;border-left:4px solid #f39c12;border-radius:4px">Your listing was created. Please check your email and open the validation link to publish the post.</div>
+      {% endif %}
+    </header>
+
+    <div class="grid">
+      <div>
+        <form class="add" method="post" action="/parts" onsubmit="return validateForm(this)">
+          <h2>Post a new part</h2>
+          <label>Title <input name="title" required /></label>
+          <label>Description <input name="description" /></label>
+          <label>Price (USD) <input name="price" type="number" /></label>
+          <label>Location <input name="location" /></label>
+          <label>Image URL <input name="image_url" /></label>
+          <label>Contact Email <input name="contact_email" /></label>
+          <label>Contact Phone <input name="contact_phone" /></label>
+          <div class="controls"><button type="submit">Post</button></div>
+        </form>
+
+        <div id="parts">
+          {% for p in parts %}
+          <div class="part" data-id="{{ p.id }}">
+            {% if p.image_url %}
+              <img class="thumb" src="{{ p.image_url }}" alt="{{ p.title }}" />
+            {% endif %}
+            <div class="content">
+              <strong>{{ p.title }}</strong>
+              <div class="meta">{{ p.location }} - {{ p.created_at }}</div>
+              <div style="margin-top:6px">{{ p.description }}</div>
+              <div class="meta" style="margin-top:8px">Price: {{ p.price }} &nbsp; Contact: {{ p.contact_email }} {{ p.contact_phone }}</div>
+              <div class="actions">
+                <a class="btn-link" href="/parts/{{ p.id }}/edit">Edit</a>
+                <button class="btn btn-danger" onclick="deletePart({{ p.id }})">Delete</button>
+                <span id="fav-{{ p.id }}">
+                {% if p.id in wishlist %}
+                  <button class="btn" onclick="toggleFav({{ p.id }}, false)">★ Favorited</button>
+                {% else %}
+                  <button class="btn" onclick="toggleFav({{ p.id }}, true)">☆ Add to favourites</button>
+                {% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <div>No parts found.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <aside class="sidebar">
+        <h3>My favourites</h3>
+        {% if wishlist_items %}
+          <ul style="list-style:none;padding:0;margin:0">
+          {% for w in wishlist_items %}
+            <li style="padding:8px;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:center">
+              {% if w.image_url %}<img src="{{ w.image_url }}" style="width:56px;height:36px;object-fit:cover;border-radius:4px"/> {% endif %}
+              <div style="flex:1">
+                <div><a href="#">{{ w.title }}</a></div>
+                <div class="meta">{{ w.price }} USD</div>
+              </div>
+              <div><button class="btn" onclick="toggleFav({{ w.id }}, false)">Remove</button></div>
+            </li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <div class="meta">No favourites yet. Click ☆ to add items to your wishlist.</div>
+        {% endif %}
+
+        <hr style="margin:12px 0" />
+        <h3>About</h3>
+        <p class="meta">Small classifieds demo. Use the form to post parts for sale. Click Edit to change a listing.</p>
+      </aside>
+    </div>
+
+    <script>
+      function validateForm(form){
+        const title = form.title.value && form.title.value.trim();
+        if(!title){ alert('Title is required'); return false }
+        const price = form.price.value;
+        if(price){ const p = Number(price); if(!Number.isFinite(p) || p<0){ alert('Price must be a positive number'); return false }}
+        const email = form.contact_email.value;
+        if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ alert('Enter a valid email'); return false }
+        return true
+      }
+      async function deletePart(id){
+        if(!confirm('Delete item '+id+'?')) return;
+        const res = await fetch('/parts/'+id, { method: 'DELETE' });
+        if(res.ok){ location.reload(); } else { alert('Failed to delete'); }
+      }
+
+      async function toggleFav(id, add){
+        const url = '/parts/'+id+'/favourite';
+        let res;
+        if(add){
+          res = await fetch(url, { method: 'POST', credentials: 'same-origin' });
+        } else {
+          res = await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
+        }
+        if(res.ok){ location.reload(); } else { alert('Failed to update favourites'); }
+      }
+    </script>
+    <footer style="margin:24px auto 32px; max-width:900px; text-align:center; color:#666; font-size:0.9rem">
+      Built by <a href="https://github.com/crazywizard254" target="_blank" rel="noopener noreferrer">crazywizard</a> for EEA interviews
+    </footer>
+  </body>
+</html>
